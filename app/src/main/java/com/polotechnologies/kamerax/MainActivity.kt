@@ -1,13 +1,16 @@
 package com.polotechnologies.kamerax
 
 import android.Manifest
+import android.content.pm.PackageManager
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.widget.Toast
 import androidx.camera.core.Camera
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.Preview
 import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.databinding.DataBindingUtil
 import com.polotechnologies.kamerax.databinding.ActivityMainBinding
 import java.io.File
@@ -26,14 +29,15 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        mBinding = DataBindingUtil.setContentView(this,R.layout.activity_main)
+        mBinding = DataBindingUtil.setContentView(this, R.layout.activity_main)
 
         // Request camera permissions
         if (allPermissionsGranted()) {
             startCamera()
         } else {
             ActivityCompat.requestPermissions(
-                this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS)
+                this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS
+            )
         }
 
         // Setup the listener for take photo button
@@ -52,11 +56,15 @@ class MainActivity : AppCompatActivity() {
         // TODO
     }
 
-    private fun allPermissionsGranted() = false
+    private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
+        ContextCompat.checkSelfPermission(
+            baseContext, it) == PackageManager.PERMISSION_GRANTED
+    }
 
     private fun getOutputDirectory(): File {
         val mediaDir = externalMediaDirs.firstOrNull()?.let {
-            File(it, resources.getString(R.string.app_name)).apply { mkdirs() } }
+            File(it, resources.getString(R.string.app_name)).apply { mkdirs() }
+        }
         return if (mediaDir != null && mediaDir.exists())
             mediaDir else filesDir
     }
@@ -67,4 +75,23 @@ class MainActivity : AppCompatActivity() {
         private const val REQUEST_CODE_PERMISSIONS = 10
         private val REQUIRED_PERMISSIONS = arrayOf(Manifest.permission.CAMERA)
     }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int, permissions: Array<String>, grantResults:
+        IntArray
+    ) {
+        if (requestCode == REQUEST_CODE_PERMISSIONS) {
+            if (allPermissionsGranted()) {
+                startCamera()
+            } else {
+                Toast.makeText(
+                    this,
+                    "Permissions not granted by the user.",
+                    Toast.LENGTH_SHORT
+                ).show()
+                finish()
+            }
+        }
+    }
+
 }
