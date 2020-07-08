@@ -2,6 +2,7 @@ package com.polotechnologies.kamerax
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.net.Uri
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
@@ -13,6 +14,8 @@ import androidx.core.content.ContextCompat
 import androidx.databinding.DataBindingUtil
 import com.polotechnologies.kamerax.databinding.ActivityMainBinding
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.*
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -58,6 +61,12 @@ class MainActivity : AppCompatActivity() {
             preview = Preview.Builder()
                 .build()
 
+            // ImageCapture
+            imageCapture = ImageCapture.Builder()
+                .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+                .build()
+
+
             // Select back camera
             val cameraSelector = CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_BACK).build()
 
@@ -67,7 +76,7 @@ class MainActivity : AppCompatActivity() {
 
                 // Bind use cases to camera
                 camera = cameraProvider.bindToLifecycle(
-                    this, cameraSelector, preview)
+                    this, cameraSelector, preview,imageCapture)
                 preview?.setSurfaceProvider(mBinding.viewFinder.createSurfaceProvider())
 
             } catch(exc: Exception) {
@@ -78,7 +87,33 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun takePhoto() {
-        // TODO
+        // Get a stable reference of the modifiable image capture use case
+        val imageCapture = imageCapture ?: return
+
+        // Create timestamped output file to hold the image
+        val photoFile = File(
+            outputDirectory,
+            SimpleDateFormat(FILENAME_FORMAT, Locale.US
+            ).format(System.currentTimeMillis()) + ".jpg")
+
+        // Create output options object which contains file + metadata
+        val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
+
+        // Setup image capture listener which is triggered after photo has
+        // been taken
+        imageCapture.takePicture(
+            outputOptions, ContextCompat.getMainExecutor(this), object : ImageCapture.OnImageSavedCallback {
+                override fun onError(exc: ImageCaptureException) {
+                    Log.e(TAG, "Photo capture failed: ${exc.message}", exc)
+                }
+
+                override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                    val savedUri = Uri.fromFile(photoFile)
+                    val msg = "Photo capture succeeded: $savedUri"
+                    Toast.makeText(baseContext, msg, Toast.LENGTH_SHORT).show()
+                    Log.d(TAG, msg)
+                }
+            })
     }
 
     private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
